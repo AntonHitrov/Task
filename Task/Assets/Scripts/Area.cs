@@ -5,16 +5,17 @@ using UniRx;
 
 class Area
 {
-    public readonly Line A, B, C, D;
-    public readonly Vector2 a, b, c, d;
-    public Vector2 Center => (a + b + c + d) / 4;
+    #region property
+    internal readonly Line A, B, C, D;
+    internal readonly Vector2 a, b, c, d;
 
-    public IEnumerable<Vector2> points { get { yield return a; yield return b; yield return c; yield return d; } }
-    public IEnumerable<Line> lines { get { yield return A; yield return B; yield return C; yield return D; } }
+    private IEnumerable<Vector2> points { get { yield return a; yield return b; yield return c; yield return d; } }
+    private IEnumerable<Line> lines { get { yield return A; yield return B; yield return C; yield return D; } }
+    #endregion
 
-    public Area(IEnumerable<Vector2> points)
+    internal Area(IEnumerable<Vector2> points)
     {
-        var list = points.ToArray();
+        Vector2[] list = points.ToArray();
         this.a = list[0];
         this.b = list[1];
         this.c = list[2];
@@ -25,7 +26,7 @@ class Area
         D = new Line(d, a);
     }
 
-    public Area(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+    internal Area(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
     {
         this.a = a;
         this.b = b;
@@ -37,14 +38,17 @@ class Area
         D = new Line(d, a);
     }
 
-    public IEnumerable<Vector2> GetInterseptPoints(Area area) 
+    #region internal
+    internal IEnumerable<Vector2> GetInterseptPoints(Area area) 
         => points.Where(area.pointInArea)
                  .Concat(area.points.Where(pointInArea))
                  .Concat(lines.SelectMany(line => area.lines.Where(line.HasIntersept).Select(line.GetIntersept)))
                  .Concat(area.lines.SelectMany(line => lines.Where(line.HasIntersept).Select(line.GetIntersept)));
 
-    public Vector2 GetUV(Vector2 point) => new Vector2(A.Scale(point) / D.D, D.Scale(point) / A.D);
+    internal Vector2 GetUV(Vector2 point) => new Vector2(A.Scale(point) / D.D, D.Scale(point) / A.D);
+    #endregion
 
-    public bool pointInArea(Vector2 point) => !lines.Any(line => line.Scale(point) > 0);
+    #region private
+    private bool pointInArea(Vector2 point) => !lines.Any(line => line.Scale(point) > 0);
+    #endregion
 }
-    

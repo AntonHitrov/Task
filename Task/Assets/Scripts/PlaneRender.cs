@@ -7,28 +7,31 @@ using static Extension;
 
 public class PlaneRender : MonoBehaviour
 {
-    
+
     #region GUI
     public MeshFilter Area;
     public Text SyzeX, SyzeY, Border, Offset, S, BorderY;
     public Slider Angle;
     #endregion
+
     #region public
     public Vector2 size;
     public static float borderY;
     public int collumn, line, startCollumn, startLine;
-    public float sizeArea,border, offset, angle, Summ;
+    public float sizeArea, border, offset, angle, Summ;
     #endregion
     #region private
 
-    private Area DefaultArea => new Area(Vector2.zero,
-                                         Vector2.up * 10 * sizeArea, 
-                                         ((Vector2.right * 10) + (Vector2.up * 10)) * sizeArea,
-                                         Vector2.right * 10 * sizeArea);
-    private List<Poligones> CreatePoligones 
-        => Poligones.GetPoligons(DefaultArea, DefaultAreas)
-                    .Where(x => x != null)
-                    .ToList();
+    private IEnumerable<Vector2> DefaultPointsToArea
+    {
+        get
+        {
+            yield return Vector2.zero;
+            yield return Vector2.up * 10 * sizeArea;
+            yield return ((Vector2.right * 10) + (Vector2.up * 10)) * sizeArea;
+            yield return Vector2.right * 10 * sizeArea;
+        }
+    }
 
     private IEnumerable<Area> DefaultAreas 
         => GetAreas(startCollumn, collumn, startLine, line, size, border, offset, angle);
@@ -36,23 +39,27 @@ public class PlaneRender : MonoBehaviour
 
     private void Start()
     {
-        Border.ObserveEveryValueChanged(x => x.text).Subscribe(_ => UpDateMesh());
-        Offset.ObserveEveryValueChanged(x => x.text).Subscribe(_ => UpDateMesh());
-        Angle.ObserveEveryValueChanged(x => x.value).Subscribe(_ => UpDateMesh());
-        BorderY.ObserveEveryValueChanged(x => x.text).Subscribe(_ => UpDateMesh());
+        Border.ObserveEveryValueChanged(x => x.text).Subscribe(_ => Handler());
+        Offset.ObserveEveryValueChanged(x => x.text).Subscribe(_ => Handler());
+        Angle.ObserveEveryValueChanged(x => x.value).Subscribe(_ => Handler());
+        BorderY.ObserveEveryValueChanged(x => x.text).Subscribe(_ => Handler());
     }
 
    
-    private void UpDateMesh()
+    private void Handler()
     {
-        GetData();
-        IEnumerable<Poligones> poligons = CreatePoligones;
-        AddMesh(poligons);
-        Summ = poligons.Select(x => x.S).Sum();
-        S.text = $"{Summ}";
+        GetParams();
+        UpDate(Poligones.GetPoligons(new Area(DefaultPointsToArea), DefaultAreas).ToList());
     }
 
-    private void GetData()
+    private void UpDate(List<Poligones> poligons)
+    {
+        AddMesh(poligons);
+        SetResult(poligons);
+    }
+
+    #region Func
+    private void GetParams()
     {
         size = Vector2.one;
         float.TryParse(Border.text.Replace('.', ','), out border);
@@ -60,8 +67,6 @@ public class PlaneRender : MonoBehaviour
         float.TryParse(BorderY.text.Replace('.', ','), out borderY);
         angle = Angle.value * Mathf.PI * 2;
     }
-
-
     private void AddMesh(IEnumerable<Poligones> poligons)
     {
         Mesh mesh = new Mesh();
@@ -71,8 +76,6 @@ public class PlaneRender : MonoBehaviour
         Area.mesh = mesh;
     }
 
- /*   internal IEnumerable<Area> GetAreas(int startCollumn, int Collumn, int startLine, int Line, Vector2 size, float border, float offset, float angle) 
-        => Enumerable.Range(startCollumn, collumn)
-                     .SelectMany(collumn => Enumerable.Range(startLine, Line)
-                     .Select(line => Extension.CreateArea(collumn, line, size, border, offset, angle)));*/
+    private void SetResult(IEnumerable<Poligones> poligons) => S.text = $"{poligons.Select(x => x.S).Sum()}";
+    #endregion
 }

@@ -7,9 +7,9 @@ using static Extension;
 
 class Poligones
 {
-    public List<Vector3> point;
-    public List<Vector2> uv;
-    public float S;
+    public readonly List<Vector3> point;
+    public readonly List<Vector2> uv;
+    public readonly float S;
         
     private Poligones(List<Vector3> point, List<Vector2> uv,float S)
     {
@@ -19,18 +19,20 @@ class Poligones
     }
 
     public static IEnumerable<Poligones> GetPoligons(Area area, IEnumerable<Area> areas)
-        => areas.Select(target => ExtractPoligons(area, target));
+        => areas.Select(target => Create(area, target)).Where(value => value != null);
 
-    private static Poligones ExtractPoligons(Area area, Area target)
+    public static Poligones Create(Area area, Area target)
     {
         List<Vector2> intersepts = area.GetInterseptPoints(target).ToList();
         if (intersepts.Count() == 0)
             return null;
         Vector2 centr = intersepts.GetCentr();
         intersepts = intersepts.Sort(centr).ToList();
+
         float S = GetGauseArea(intersepts.ToArray());
         List<Vector2> poligons = intersepts.GetPoligons(centr).ToList();
         List<Vector2> uv = poligons.Select(target.GetUV).ToList();
+
         return new Poligones(poligons.Select(x => new Vector3(x.x, 0, x.y)).ToList(), uv, S);
     }
 
