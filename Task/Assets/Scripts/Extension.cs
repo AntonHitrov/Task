@@ -80,6 +80,13 @@ static class Extension
     }
     #endregion
 
+    #region Gaus
+    public static float GetGauseArea(Vector2[] arg)
+    => (Enumerable.Range(0, arg.Length - 1)
+                 .Select(i => (arg[i].x * arg[i + 1].y) - (arg[i].y * arg[i + 1].x))
+                 .Sum() + (arg.Last().x * arg[0].y) - (arg.Last().y * arg[0].x)) * 0.5f;
+    #endregion
+
     #region AreaBuilder
     public static Area CreateArea(int column, int line, Vector2 size, float border,float offset,float angle)
     {
@@ -103,5 +110,11 @@ static class Extension
         return new Vector2(((target.x - pivot.x) * Mathf.Cos(angle) - (target.y - pivot.y) * Mathf.Sin(angle)) + pivot.x, 
                            ((target.x - pivot.x) * Mathf.Sin(angle) + (target.y - pivot.y) * Mathf.Cos(angle)) + pivot.y);
     }
+
+    internal static IEnumerable<Area> GetAreas(int startCollumn, int Collumn, int startLine, int Line, Vector2 size, float border, float offset, float angle)
+    => Enumerable.Range(startCollumn, Collumn)
+                 .SelectMany(collumn => Enumerable.Range(startLine, Line)
+                 .Select(line => Extension.CreateArea(collumn, line, size, border, offset, angle)));
+
     #endregion
 }
