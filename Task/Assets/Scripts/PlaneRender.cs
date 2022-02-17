@@ -1,5 +1,5 @@
 using NaughtyAttributes;
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -7,6 +7,7 @@ using UnityEngine;
 public class PlaneRender : MonoBehaviour
 {
     public MeshFilter Area;
+    public float sizeArea;
     public Vector2 size;
     public float border,offset,angle;
     public int collumn, line, startCollumn, startLine;
@@ -25,43 +26,46 @@ public class PlaneRender : MonoBehaviour
     [Button]
     void Test()
     {
-        var area = new Area(Vector2.zero, Vector2.up * 10, (Vector2.right * 10) + (Vector2.up * 10), Vector2.right * 10);
-        IEnumerable<Vector2> poligons = GetPoligons(area,GetAreas(startCollumn, collumn, startLine, line, size, border, offset, angle));
+        var area = new Area(Vector2.zero, Vector2.up * 10 * sizeArea, ((Vector2.right * 10) + (Vector2.up * 10)) * sizeArea, Vector2.right * 10 * sizeArea);
+        IEnumerable<Poligones> poligons = GetPoligons(area,GetAreas(startCollumn, collumn, startLine, line, size, border, offset, angle)).Where(x=> x != null).ToList();
         var mesh = new Mesh();
-        mesh.SetVertices(poligons.Select(x => new Vector3(x.x, 0, x.y)).ToList());
-        mesh.SetIndices(Enumerable.Range(0, poligons.Count()).ToArray(), MeshTopology.Triangles, 0);
+        mesh.SetVertices(poligons.SelectMany(x => x.point).ToList());
+        mesh.SetIndices(Enumerable.Range(0, poligons.SelectMany(x => x.point).Count()).ToArray(), MeshTopology.Triangles, 0);
+        mesh.SetUVs(0, poligons.SelectMany(x => x.uv).ToArray());
         Area.mesh = mesh;
     }
 
     private IEnumerable<Area> GetAreas(int startCollumn, int Collumn, int startLine, int Line, Vector2 size, float border, float offset, float angle) 
         => Enumerable.Range(startCollumn, collumn).SelectMany(collumn => Enumerable.Range(startLine, Line).Select(line => Extension.GetArea(collumn, line, size, border, offset, angle)));
 
-    private IEnumerable<Vector2> GetPoligons(Area area, IEnumerable<Area> areas)
+    private IEnumerable<Poligones> GetPoligons(Area area, IEnumerable<Area> areas)
     {
-        return areas.SelectMany(target =>
+        return areas.Select(target =>
         {
             var intersepts = area.GetInterseptPoints(target).ToList();
             if (intersepts.Count() == 0)
-                return Enumerable.Empty<Vector2>();
+                return null;
             var centr = intersepts.GetCentr();
             intersepts = intersepts.Sort(centr).ToList();
-            var poligons = intersepts.GetPoligons(centr);
             
-            poligons.Select(x => new Vector3(x.x, 0, x.y));
-            return poligons;
+            var poligons = intersepts.GetPoligons(centr).ToList();
+            var uv = poligons.Select(target.GetUV).ToList();
+            
+            return new Poligones(poligons.Select(x => new Vector3(x.x, 0, x.y)).ToList(),uv);
         });
+
     }
 
-    private IEnumerable<Vector2> GetPoligons(Area area,int collumn,int line,Vector2 size,float border, float offset, float angle)
+    private class Poligones
     {
-        var target = Extension.GetArea(collumn, line, size, border, offset, angle);
-        var intersepts = area.GetInterseptPoints(target).ToList();
-        var centr = intersepts.GetCentr();
-        intersepts = intersepts.Sort(centr).ToList();
-        var poligons = intersepts.GetPoligons(centr);
-        poligons.ToList().ForEach(x => Debug.Log(x));
-        poligons.Select(x => new Vector3(x.x, 0, x.y));
-        return poligons;
+        public List<Vector3> point;
+        public List<Vector2> uv;
+        
+        public Poligones(List<Vector3> point, List<Vector2> uv)
+        {
+            this.point = point ?? throw new ArgumentNullException(nameof(point));
+            this.uv = uv ?? throw new ArgumentNullException(nameof(uv));
+        }
     }
 }
 
@@ -106,10 +110,12 @@ class Area
     {
         var f = points.Where(area.pointInArea);
         var s = area.points.Where(pointInArea);
-        var f_intersept = lines.SelectMany(line => area.lines.Where(line.HasIntersept).Select(line.GetIntersept));
-        var s_intersept = area.lines.SelectMany(line => lines.Where(line.HasIntersept).Select(line.GetIntersept));
+        var f_intersept = lines.SelectMany(line => area.lines.Where(line.HasIntersept).Select(line.GetIntersept)/*.Where(pointInArea)*/);
+        var s_intersept = area.lines.SelectMany(line => lines.Where(line.HasIntersept).Select(line.GetIntersept)/*.Where(pointInArea)*/);
         return f.Concat(s).Concat(f_intersept).Concat(s_intersept);
     }
+
+    public Vector2 GetUV(Vector2 point) => new Vector2(A.Scale(point) / D.D, D.Scale(point) / A.D);
 
     public bool pointInArea(Vector2 point) => A.Scale(point) <= 0 && B.Scale(point) <= 0 && C.Scale(point) <= 0 && D.Scale(point) <= 0;
 }
@@ -150,22 +156,16 @@ static class Extension
         return Mathf.Atan2(first.y, first.x) - Mathf.Atan2(second.y,second.x);
     }
 
-    public static bool HasIntersept(this Line A, Line B) 
-        => ((GetAngle(B.v1, A.v1, A.v2) >= 0.0f) == (GetAngle(B.v2, A.v1, A.v2) <= 0.0f))
-        && ((GetAngle(A.v1, B.v1, B.v2) >= 0.0f) == (GetAngle(A.v2, B.v1, B.v2) <= 0.0f));
+    public static bool HasIntersept(this Line A, Line B)
+        => Intercept(A.v1, A.v2,B.v1,B.v2);
+    
 
-    public static Vector2 GetIntersept(this Line A, Line B)
-    {
-        float scale =  B.Scale(A.v1);
-        return B.PointInLine(A.v1);
-        Vector2 perpendicular = ((-scale) * B.Perpendicular);
-        var pointInLine = A.v1 + perpendicular;
-        return pointInLine + (B.normal * (perpendicular.magnitude * Mathf.Tan(GetAngle(A.v2,A.v1, pointInLine))));
-    }
+    public static Vector2 GetIntersept(this Line A, Line B) => GetIntersept(A.A, A.B, A.C, B.A, B.B, B.C);
 
     public static Vector2 PointInLine(this Line line, Vector2 input)
     {
         var pointInLine = (line.Perpendicular * (-line.Scale(input))) + input;
+        
         return Vector2.Lerp(line.Centr, pointInLine, 1.0f / (Vector2.Distance(line.Centr, pointInLine) / (line.D * 0.5f)));
     }
 
@@ -203,9 +203,11 @@ static class Extension
 
     public static Area GetArea(int column, int line, Vector2 size, float border,float offset,float angle)
     {
-        var stepUP = new Vector2(size.y + border, Mathf.Repeat(offset, size.x + border));
-        var stepRight = new Vector2(0, size.x + border);
-        return new Area(positions(size).Select(point => point + (stepUP * line) + (stepRight * column)).Select(point => Rotate(angle, point)));
+        var stepUP = new Vector2(Mathf.Repeat(offset, size.x + border),size.y + border);
+        var stepRight = new Vector2(size.x + border,0);
+        var points = positions(size).Select(point => point + (stepUP * line) + (stepRight * column)).ToList();
+       
+        return new Area(points.Select(point => Rotate(angle, point, Vector2.zero)));
     }
 
     private static IEnumerable<Vector2> positions(Vector2 size)
@@ -216,7 +218,33 @@ static class Extension
         yield return Vector2.right * size.x;
     }
 
-    private static Vector2 Rotate(float angle, Vector2 target) 
-        => new Vector2(target.x * Mathf.Cos(angle) - target.y * Mathf.Sin(angle), target.x * Mathf.Sin(angle) + target.y * Mathf.Cos(angle));
+    private static Vector2 Rotate(float angle, Vector2 target,Vector2 pivot)
+    {
+        return new Vector2(((target.x - pivot.x) * Mathf.Cos(angle) - (target.y - pivot.y) * Mathf.Sin(angle)) + pivot.x, 
+                           ((target.x - pivot.x) * Mathf.Sin(angle) + (target.y - pivot.y) * Mathf.Cos(angle)) + pivot.y);
+    }
+
+    static Vector2 GetIntersept(float a1,float b1,float c1,float a2,float b2,float c2)
+    {
+        Vector2 pt = new Vector2();
+        var d = (a1 * b2 - b1 * a2);
+        var dx = (-c1 * b2 + b1 * c2);
+        var dy = (-a1 * c2 + c1 * a2);
+        pt.x =(dx / d);
+        pt.y = (dy / d);
+        return pt;
+    }
+
+    private static float Mult(float ax, float ay, float bx, float by) => (ax * by) - (bx * ay);
+    public static bool Intercept(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4)
+    {
+        float v1 = Mult(p4.x - p3.x, p4.y - p3.y, p1.x - p3.x, p1.y - p3.y);
+        float v2 = Mult(p4.x - p3.x, p4.y - p3.y, p2.x - p3.x, p2.y - p3.y);
+        float v3 = Mult(p2.x - p1.x, p2.y - p1.y, p3.x - p1.x, p3.y - p1.y);
+        float v4 = Mult(p2.x - p1.x, p2.y - p1.y, p4.x - p1.x, p4.y - p1.y);
+        if ((v1 * v2) < 0 && (v3 * v4) < 0)
+            return true;
+        return false;
+    }
 }
     
