@@ -6,6 +6,9 @@ using UnityEngine;
 
 public class PlaneRender : MonoBehaviour
 {
+    public MeshFilter Area;
+    public Vector2 offset;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -21,14 +24,17 @@ public class PlaneRender : MonoBehaviour
     [Button]
     void Test()
     {
-        var first = new Line(Vector2.up,Vector2.down);
-        var second = new Line(Vector2.left + Vector2.down, Vector2.right + Vector2.down);
-
-        Debug.Log(Extension.GetAngle(Vector2.left, Vector2.up, Vector2.right));
-        Debug.Log(Extension.GetAngle(Vector2.up, Vector2.left, Vector2.down));
-
-        Debug.Log(Extension.HasIntersept(first,second));
-        Debug.Log(Extension.GetIntersept(first, second));
+        var area = new Area(Vector2.zero,Vector2.up * 10, (Vector2.right * 10) + (Vector2.up * 10), Vector2.right * 10);
+        var target = new Area(Vector2.zero + offset, Vector2.up + offset, Vector2.right + offset + Vector2.up , Vector2.right + offset);
+        var intersepts = area.GetInterseptPoints(target).ToList();
+        var centr = intersepts.GetCentr();
+        intersepts = intersepts.Sort(centr).ToList();
+        var poligons = intersepts.GetPoligons(centr);
+        poligons.ToList().ForEach(x =>Debug.Log(x));
+        var mesh = new Mesh();
+        mesh.SetVertices(poligons.Select(x => new Vector3(x.x, 0, x.y)).ToList());
+        mesh.SetIndices(Enumerable.Range(0,poligons.Count()).ToArray(),MeshTopology.Triangles,0);
+        Area.mesh = mesh;
     }
 }
 
@@ -38,6 +44,9 @@ class Area
     public readonly Line A, B, C, D;
     public readonly Vector2 a, b, c, d;
     public Vector2 Center => (a + b + c + d) / 4;
+
+    public IEnumerable<Vector2> points { get { yield return a; yield return b; yield return c; yield return d; } }
+    public IEnumerable<Line> lines { get { yield return A; yield return B; yield return C; yield return D; } }
 
     public Area(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
     {
@@ -53,10 +62,16 @@ class Area
 
     public bool Includet => pointInArea(Center);
 
-    public bool pointInArea(Vector2 point) => A.Scale(point) <= 0 && B.Scale(point) <= 0 && C.Scale(point) <= 0;
+    public IEnumerable<Vector2> GetInterseptPoints(Area area)
+    {
+        var f = points.Where(area.pointInArea);
+        var s = area.points.Where(pointInArea);
+        var f_intersept = lines.SelectMany(line => area.lines.Where(line.HasIntersept).Select(line.GetIntersept));
+        var s_intersept = area.lines.SelectMany(line => lines.Where(line.HasIntersept).Select(line.GetIntersept));
+        return f.Concat(s).Concat(f_intersept).Concat(s_intersept);
+    }
 
-   
-
+    public bool pointInArea(Vector2 point) => A.Scale(point) <= 0 && B.Scale(point) <= 0 && C.Scale(point) <= 0 && D.Scale(point) <= 0;
 }
 
 class Line
@@ -95,11 +110,11 @@ static class Extension
         return Mathf.Atan2(first.y, first.x) - Mathf.Atan2(second.y,second.x);
     }
 
-    public static bool HasIntersept(Line A, Line B) 
+    public static bool HasIntersept(this Line A, Line B) 
         => ((GetAngle(B.v1, A.v1, A.v2) >= 0.0f) == (GetAngle(B.v2, A.v1, A.v2) <= 0.0f))
         && ((GetAngle(A.v1, B.v1, B.v2) >= 0.0f) == (GetAngle(A.v2, B.v1, B.v2) <= 0.0f));
 
-    public static Vector2 GetIntersept(Line A, Line B)
+    public static Vector2 GetIntersept(this Line A, Line B)
     {
         float scale =  B.Scale(A.v1);
         Vector2 perpendicular = ((-scale) * B.Perpendicular);
@@ -120,5 +135,23 @@ static class Extension
         int IComparer<Vector2>.Compare(Vector2 x, Vector2 y) => GetAngle(x, centr, y) >= 0 ? 1 : -1;
     }
 
+    public static Vector2 GetCentr(this IEnumerable<Vector2> points)
+    {
+        var list = points.ToList();
+        return list.Aggregate((a, b) => a + b) / list.Count;
+    }
+
+    public static IEnumerable<Vector2> GetPoligons(this IEnumerable<Vector2> points, Vector2 centr)
+    {
+        IEnumerator<Vector2> enumerator = points.GetEnumerator();
+        Vector2 last = points.Last();
+        while (enumerator.MoveNext())
+        {
+            yield return centr;
+            yield return last;
+            yield return last = enumerator.Current;
+
+        }
+    }
 }
     
