@@ -11,6 +11,7 @@ public class PlaneRender : MonoBehaviour
     public Vector2 size;
     public float border,offset,angle;
     public int collumn, line, startCollumn, startLine;
+    public float Summ;
     // Start is called before the first frame update
     void Start()
     {
@@ -33,6 +34,7 @@ public class PlaneRender : MonoBehaviour
         mesh.SetIndices(Enumerable.Range(0, poligons.SelectMany(x => x.point).Count()).ToArray(), MeshTopology.Triangles, 0);
         mesh.SetUVs(0, poligons.SelectMany(x => x.uv).ToArray());
         Area.mesh = mesh;
+        Summ = poligons.Select(x => x.S).Sum() * 0.5f;
     }
 
     private IEnumerable<Area> GetAreas(int startCollumn, int Collumn, int startLine, int Line, Vector2 size, float border, float offset, float angle) 
@@ -47,11 +49,14 @@ public class PlaneRender : MonoBehaviour
                 return null;
             var centr = intersepts.GetCentr();
             intersepts = intersepts.Sort(centr).ToList();
+            var arg = intersepts.ToArray();
+            var S = Enumerable.Range(0, arg.Length - 1).Select(i => (arg[i].x * arg[i + 1].y) - (arg[i].y * arg[i + 1].x)).Sum() + (arg.Last().x * arg[0].y) - (arg.Last().y * arg[0].x);
             
+
             var poligons = intersepts.GetPoligons(centr).ToList();
             var uv = poligons.Select(target.GetUV).ToList();
             
-            return new Poligones(poligons.Select(x => new Vector3(x.x, 0, x.y)).ToList(),uv);
+            return new Poligones(poligons.Select(x => new Vector3(x.x, 0, x.y)).ToList(),uv,S);
         });
 
     }
@@ -60,12 +65,17 @@ public class PlaneRender : MonoBehaviour
     {
         public List<Vector3> point;
         public List<Vector2> uv;
+        public float S;
         
-        public Poligones(List<Vector3> point, List<Vector2> uv)
+        public Poligones(List<Vector3> point, List<Vector2> uv,float S)
         {
             this.point = point ?? throw new ArgumentNullException(nameof(point));
             this.uv = uv ?? throw new ArgumentNullException(nameof(uv));
+            this.S = S;
+            
         }
+
+       
     }
 }
 
