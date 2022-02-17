@@ -7,8 +7,9 @@ using UnityEngine;
 public class PlaneRender : MonoBehaviour
 {
     public MeshFilter Area;
-    public Vector2 offset;
-
+    public Vector2 size;
+    public float border,offset,angle;
+    public int collumn, line;
     // Start is called before the first frame update
     void Start()
     {
@@ -24,17 +25,24 @@ public class PlaneRender : MonoBehaviour
     [Button]
     void Test()
     {
-        var area = new Area(Vector2.zero,Vector2.up * 10, (Vector2.right * 10) + (Vector2.up * 10), Vector2.right * 10);
-        var target = new Area(Vector2.zero + offset, Vector2.up + offset, Vector2.right + offset + Vector2.up , Vector2.right + offset);
+        var area = new Area(Vector2.zero, Vector2.up * 10, (Vector2.right * 10) + (Vector2.up * 10), Vector2.right * 10);
+        IEnumerable<Vector2> poligons = GetPoligons(area, collumn, line, size, border, offset, angle);
+        var mesh = new Mesh();
+        mesh.SetVertices(poligons.Select(x => new Vector3(x.x, 0, x.y)).ToList());
+        mesh.SetIndices(Enumerable.Range(0, poligons.Count()).ToArray(), MeshTopology.Triangles, 0);
+        Area.mesh = mesh;
+    }
+
+    private IEnumerable<Vector2> GetPoligons(Area area,int collumn,int line,Vector2 size,float border, float offset, float angle)
+    {
+        var target = Extension.GetArea(collumn, line, size, border, offset, angle);
         var intersepts = area.GetInterseptPoints(target).ToList();
         var centr = intersepts.GetCentr();
         intersepts = intersepts.Sort(centr).ToList();
         var poligons = intersepts.GetPoligons(centr);
-        poligons.ToList().ForEach(x =>Debug.Log(x));
-        var mesh = new Mesh();
-        mesh.SetVertices(poligons.Select(x => new Vector3(x.x, 0, x.y)).ToList());
-        mesh.SetIndices(Enumerable.Range(0,poligons.Count()).ToArray(),MeshTopology.Triangles,0);
-        Area.mesh = mesh;
+        poligons.ToList().ForEach(x => Debug.Log(x));
+        poligons.Select(x => new Vector3(x.x, 0, x.y));
+        return poligons;
     }
 }
 
@@ -47,6 +55,19 @@ class Area
 
     public IEnumerable<Vector2> points { get { yield return a; yield return b; yield return c; yield return d; } }
     public IEnumerable<Line> lines { get { yield return A; yield return B; yield return C; yield return D; } }
+
+    public Area(IEnumerable<Vector2> points)
+    {
+        var list = points.ToArray();
+        this.a = list[0];
+        this.b = list[1];
+        this.c = list[2];
+        this.d = list[3];
+        A = new Line(a, b);
+        B = new Line(b, c);
+        C = new Line(c, d);
+        D = new Line(d, a);
+    }
 
     public Area(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
     {
@@ -153,5 +174,23 @@ static class Extension
 
         }
     }
+
+    public static Area GetArea(int column, int line, Vector2 size, float border,float offset,float angle)
+    {
+        var stepUP = new Vector2(size.y + border, Mathf.Repeat(offset, size.x + border));
+        var stepRight = new Vector2(0, size.x + border);
+        return new Area(positions(size).Select(point => point + (stepUP * line) + (stepRight * column)).Select(point => Rotate(angle, point)));
+    }
+
+    private static IEnumerable<Vector2> positions(Vector2 size)
+    {
+        yield return Vector2.zero;
+        yield return Vector2.up * size.y;
+        yield return size;
+        yield return Vector2.right * size.x;
+    }
+
+    private static Vector2 Rotate(float angle, Vector2 target) 
+        => new Vector2(target.x * Mathf.Cos(angle) - target.y * Mathf.Sin(angle), target.x * Mathf.Sin(angle) + target.y * Mathf.Cos(angle));
 }
     
