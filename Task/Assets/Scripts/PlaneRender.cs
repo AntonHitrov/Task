@@ -10,7 +10,8 @@ public class PlaneRender : MonoBehaviour
 
     #region GUI
     public MeshFilter Area;
-    public Text SyzeX, SyzeY, Border, Offset, S, BorderY;
+
+    public Text SyzeX, SyzeY, BorderX, BorderY, S, Offset ;
     public Slider Angle;
     #endregion
 
@@ -39,10 +40,18 @@ public class PlaneRender : MonoBehaviour
 
     private void Start()
     {
-        Border.ObserveEveryValueChanged(x => x.text).Subscribe(_ => Handler());
-        Offset.ObserveEveryValueChanged(x => x.text).Subscribe(_ => Handler());
-        Angle.ObserveEveryValueChanged(x => x.value).Subscribe(_ => Handler());
-        BorderY.ObserveEveryValueChanged(x => x.text).Subscribe(_ => Handler());
+        Angle.ObserveEveryValueChanged(x => x.value)
+             .Subscribe(_ => Handler())
+             .AddTo(Area);
+        BorderX.ObserveEveryValueChanged(x => x.text)
+              .Subscribe(_ => Handler())
+              .AddTo(Area);
+        BorderY.ObserveEveryValueChanged(x => x.text)
+               .Subscribe(_ => Handler())
+               .AddTo(Area);
+        Offset.ObserveEveryValueChanged(x => x.text)
+              .Subscribe(_ => Handler())
+              .AddTo(Area);
     }
 
    
@@ -62,7 +71,7 @@ public class PlaneRender : MonoBehaviour
     private void GetParams()
     {
         size = Vector2.one;
-        float.TryParse(Border.text.Replace('.', ','), out border);
+        float.TryParse(BorderX.text.Replace('.', ','), out border);
         float.TryParse(Offset.text.Replace('.', ','), out offset);
         float.TryParse(BorderY.text.Replace('.', ','), out borderY);
         angle = Angle.value * Mathf.PI * 2;

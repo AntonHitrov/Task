@@ -88,14 +88,19 @@ static class Extension
     #endregion
 
     #region AreaBuilder
-    public static Area CreateArea(int column, int line, Vector2 size, float border,float offset,float angle)
-    {
-        var stepUP = new Vector2(Mathf.Repeat(offset, size.x + border),size.y + border);
-        var stepRight = new Vector2(size.x + PlaneRender.borderY,0);
-        var points = positions(size).Select(point => point + (stepUP * line) + (stepRight * column)).ToList();
-       
-        return new Area(points.Select(point => Rotate(angle, point, Vector2.zero)));
-    }
+    public static Area CreateArea(int column, int line, Vector2 size, float border, float offset, float angle) 
+        => new Area(positions(size).Select(point => point + Step(column, line, size, border, offset))
+                                   .Select(point => Rotate(angle, point, Vector2.zero)));
+
+    private static Vector2 Step(int column, int line, Vector2 size, float border, float offset)
+        => (GetStepUP(size, border, offset) * line)
+            + (GetStepRight(size) * column);
+
+    private static Vector2 GetStepRight(Vector2 size) 
+        => new Vector2(size.x + PlaneRender.borderY, 0);
+
+    private static Vector2 GetStepUP(Vector2 size, float borderX, float offset) 
+        => new Vector2(Mathf.Repeat(offset, size.x + borderX), size.y + borderX);
 
     private static IEnumerable<Vector2> positions(Vector2 size)
     {
@@ -105,16 +110,14 @@ static class Extension
         yield return Vector2.right * size.x;
     }
 
-    private static Vector2 Rotate(float angle, Vector2 target,Vector2 pivot)
-    {
-        return new Vector2(((target.x - pivot.x) * Mathf.Cos(angle) - (target.y - pivot.y) * Mathf.Sin(angle)) + pivot.x, 
-                           ((target.x - pivot.x) * Mathf.Sin(angle) + (target.y - pivot.y) * Mathf.Cos(angle)) + pivot.y);
-    }
+    private static Vector2 Rotate(float angle, Vector2 target, Vector2 pivot) 
+        => new Vector2(((target.x - pivot.x) * Mathf.Cos(angle) - (target.y - pivot.y) * Mathf.Sin(angle)) + pivot.x,
+                      ((target.x - pivot.x) * Mathf.Sin(angle) + (target.y - pivot.y) * Mathf.Cos(angle)) + pivot.y);
 
     internal static IEnumerable<Area> GetAreas(int startCollumn, int Collumn, int startLine, int Line, Vector2 size, float border, float offset, float angle)
-    => Enumerable.Range(startCollumn, Collumn)
-                 .SelectMany(collumn => Enumerable.Range(startLine, Line)
-                 .Select(line => Extension.CreateArea(collumn, line, size, border, offset, angle)));
+        => Enumerable.Range(startCollumn, Collumn)
+                     .SelectMany(collumn => Enumerable.Range(startLine, Line)
+                     .Select(line => Extension.CreateArea(collumn, line, size, border, offset, angle)));
 
     #endregion
 }
