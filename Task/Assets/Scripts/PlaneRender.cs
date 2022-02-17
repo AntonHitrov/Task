@@ -1,9 +1,9 @@
-using NaughtyAttributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
+using UniRx;
 
 public class PlaneRender : MonoBehaviour
 {
@@ -11,36 +11,35 @@ public class PlaneRender : MonoBehaviour
     public float sizeArea;
     public Vector2 size;
     public float border,offset,angle;
+    public static float borderY;
     public int collumn, line, startCollumn, startLine;
     public float Summ;
 
-    public Text SyzeX, SyzeY, Border, Offset, S;
+    public Text SyzeX, SyzeY, Border, Offset, S, BorderY;
     public Slider Angle;
-    // Start is called before the first frame update
-    void Start()
+
+    private void Start()
     {
-        
+        Border.ObserveEveryValueChanged(x => x.text).Subscribe(_ => Test());
+        Offset.ObserveEveryValueChanged(x => x.text).Subscribe(_ => Test());
+        Angle.ObserveEveryValueChanged(x => x.value).Subscribe(_ => Test());
+        BorderY.ObserveEveryValueChanged(x => x.text).Subscribe(_ => Test());
+
     }
+
 
     void GetData()
     {
         size = Vector2.one;
-       // float.TryParse(SyzeX.text.Replace('.',','), out size.x);
-       // float.TryParse(SyzeY.text.Replace('.', ','), out size.y);
-
         float.TryParse(Border.text.Replace('.', ','), out border);
         float.TryParse(Offset.text.Replace('.', ','), out offset);
-
+        float.TryParse(BorderY.text.Replace('.', ','), out borderY);
         angle = Angle.value * Mathf.PI * 2;
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    
 
-    [Button]
+   
     public void Test()
     {
         GetData();
@@ -232,7 +231,7 @@ static class Extension
     public static Area GetArea(int column, int line, Vector2 size, float border,float offset,float angle)
     {
         var stepUP = new Vector2(Mathf.Repeat(offset, size.x + border),size.y + border);
-        var stepRight = new Vector2(size.x + border,0);
+        var stepRight = new Vector2(size.x + PlaneRender.borderY,0);
         var points = positions(size).Select(point => point + (stepUP * line) + (stepRight * column)).ToList();
        
         return new Area(points.Select(point => Rotate(angle, point, Vector2.zero)));
