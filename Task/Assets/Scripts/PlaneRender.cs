@@ -9,7 +9,7 @@ public class PlaneRender : MonoBehaviour
     public MeshFilter Area;
     public Vector2 size;
     public float border,offset,angle;
-    public int collumn, line;
+    public int collumn, line, startCollumn, startLine;
     // Start is called before the first frame update
     void Start()
     {
@@ -26,11 +26,30 @@ public class PlaneRender : MonoBehaviour
     void Test()
     {
         var area = new Area(Vector2.zero, Vector2.up * 10, (Vector2.right * 10) + (Vector2.up * 10), Vector2.right * 10);
-        IEnumerable<Vector2> poligons = GetPoligons(area, collumn, line, size, border, offset, angle);
+        IEnumerable<Vector2> poligons = GetPoligons(area,GetAreas(startCollumn, collumn, startLine, line, size, border, offset, angle));
         var mesh = new Mesh();
         mesh.SetVertices(poligons.Select(x => new Vector3(x.x, 0, x.y)).ToList());
         mesh.SetIndices(Enumerable.Range(0, poligons.Count()).ToArray(), MeshTopology.Triangles, 0);
         Area.mesh = mesh;
+    }
+
+    private IEnumerable<Area> GetAreas(int startCollumn, int Collumn, int startLine, int Line, Vector2 size, float border, float offset, float angle) 
+        => Enumerable.Range(startCollumn, collumn).SelectMany(collumn => Enumerable.Range(startLine, Line).Select(line => Extension.GetArea(collumn, line, size, border, offset, angle)));
+
+    private IEnumerable<Vector2> GetPoligons(Area area, IEnumerable<Area> areas)
+    {
+        return areas.SelectMany(target =>
+        {
+            var intersepts = area.GetInterseptPoints(target).ToList();
+            if (intersepts.Count() == 0)
+                return Enumerable.Empty<Vector2>();
+            var centr = intersepts.GetCentr();
+            intersepts = intersepts.Sort(centr).ToList();
+            var poligons = intersepts.GetPoligons(centr);
+            
+            poligons.Select(x => new Vector3(x.x, 0, x.y));
+            return poligons;
+        });
     }
 
     private IEnumerable<Vector2> GetPoligons(Area area,int collumn,int line,Vector2 size,float border, float offset, float angle)
@@ -138,9 +157,16 @@ static class Extension
     public static Vector2 GetIntersept(this Line A, Line B)
     {
         float scale =  B.Scale(A.v1);
+        return B.PointInLine(A.v1);
         Vector2 perpendicular = ((-scale) * B.Perpendicular);
         var pointInLine = A.v1 + perpendicular;
         return pointInLine + (B.normal * (perpendicular.magnitude * Mathf.Tan(GetAngle(A.v2,A.v1, pointInLine))));
+    }
+
+    public static Vector2 PointInLine(this Line line, Vector2 input)
+    {
+        var pointInLine = (line.Perpendicular * (-line.Scale(input))) + input;
+        return Vector2.Lerp(line.Centr, pointInLine, 1.0f / (Vector2.Distance(line.Centr, pointInLine) / (line.D * 0.5f)));
     }
 
     public static IEnumerable<Vector2> Sort(this List<Vector2> points, Vector2 centr)
