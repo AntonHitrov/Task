@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlaneRender : MonoBehaviour
 {
@@ -12,10 +13,25 @@ public class PlaneRender : MonoBehaviour
     public float border,offset,angle;
     public int collumn, line, startCollumn, startLine;
     public float Summ;
+
+    public Text SyzeX, SyzeY, Border, Offset, S;
+    public Slider Angle;
     // Start is called before the first frame update
     void Start()
     {
         
+    }
+
+    void GetData()
+    {
+        size = Vector2.one;
+       // float.TryParse(SyzeX.text.Replace('.',','), out size.x);
+       // float.TryParse(SyzeY.text.Replace('.', ','), out size.y);
+
+        float.TryParse(Border.text.Replace('.', ','), out border);
+        float.TryParse(Offset.text.Replace('.', ','), out offset);
+
+        angle = Angle.value * Mathf.PI * 2;
     }
 
     // Update is called once per frame
@@ -25,8 +41,9 @@ public class PlaneRender : MonoBehaviour
     }
 
     [Button]
-    void Test()
+    public void Test()
     {
+        GetData();
         var area = new Area(Vector2.zero, Vector2.up * 10 * sizeArea, ((Vector2.right * 10) + (Vector2.up * 10)) * sizeArea, Vector2.right * 10 * sizeArea);
         IEnumerable<Poligones> poligons = GetPoligons(area,GetAreas(startCollumn, collumn, startLine, line, size, border, offset, angle)).Where(x=> x != null).ToList();
         var mesh = new Mesh();
@@ -35,6 +52,7 @@ public class PlaneRender : MonoBehaviour
         mesh.SetUVs(0, poligons.SelectMany(x => x.uv).ToArray());
         Area.mesh = mesh;
         Summ = poligons.Select(x => x.S).Sum() * 0.5f;
+        S.text = $"{Summ}";
     }
 
     private IEnumerable<Area> GetAreas(int startCollumn, int Collumn, int startLine, int Line, Vector2 size, float border, float offset, float angle) 
